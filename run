@@ -1,0 +1,11 @@
+#!/bin/sh
+
+export LD_LIBRARY_PATH="/usr/lib/plexmediaserver"
+export PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="/config"
+export PLEX_MEDIA_SERVER_HOME="/usr/lib/plexmediaserver"
+export PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS="6"
+export PLEX_MEDIA_SERVER_MAX_STACK_SIZE="3000"
+export TMPDIR="/tmp"
+
+ulimit -s $PLEX_MAX_STACK_SIZE;
+/usr/lib/plexmediaserver/Plex\ Media\ Server
