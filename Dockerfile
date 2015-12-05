@@ -1,43 +1,80 @@
 FROM debian:jessie
+# MAINTAINER Peter T Bosse II <ptb@ioutime.com>
 
-RUN apt-get update -qq \
-  && BUILD_PACKAGES='wget' \
-  && REQUIRED_PACKAGES='ca-certificates' \
-  && DEBIAN_FRONTEND=noninteractive \
+RUN \
+  BUILD_PACKAGES="wget" \
+
+  && USERID_ON_HOST=1026 \
+
+  && useradd \
+    --comment "Plex Media Server" \
+    --create-home \
+    --user-group \
+    --shell /usr/sbin/nologin \
+    --uid $USERID_ON_HOST \
+    plex \
+
+ && echo "debconf debconf/frontend select noninteractive" \
+    | debconf-set-selections \
+
+  && sed \
+    -e "s/httpredir.debian.org/debian.mirror.constant.com/" \
+    -i /etc/apt/sources.list \
+
+  && apt-get update -qq \
   && apt-get install -qqy \
     $BUILD_PACKAGES \
-    $REQUIRED_PACKAGES \
-  && wget --no-check-certificate -qO- \
-    https://github.com/just-containers/s6-overlay/releases/download/v1.16.0.0/s6-overlay-amd64.tar.gz \
-    | tar zx -C / \
-  && DOWNLOAD_URL=`wget -qO- https://plex.tv/downloads \
-    | grep -o '[^"'"'"']*amd64.deb' \
-    | grep -m 1 -v binaries` \
-  && echo $DOWNLOAD_URL \
-  && while true; \
-    do \
-      wget $DOWNLOAD_URL -qO plexmediaserver.deb; \
-      if [ $? = 0 ]; \
-        then break; \
-      fi; \
-      sleep 1s; \
-    done \
-  && touch /bin/start \
-  && chmod +x /bin/start \
-  && dpkg -i plexmediaserver.deb \
+
+  && wget \
+    --output-document - \
+    --quiet \
+    https://plex.tv/downloads \
+    | sed -n '/binaries/! s/.*"\(.*_amd64.deb\)".*/\1/p' \
+    | wget \
+      --input-file - \
+      --output-document /tmp/plexmediaserver.deb \
+      --quiet \
+
+  && dpkg --install /tmp/plexmediaserver.deb \
+
+  && wget \
+    --output-document - \
+    --quiet \
+    https://api.github.com/repos/just-containers/s6-overlay/releases/latest \
+    | sed -n "s/^.*browser_download_url.*: \"\(.*s6-overlay-amd64.tar.gz\)\".*/\1/p" \
+    | wget \
+      --input-file - \
+      --output-document - \
+      --quiet \
+    | tar -xz -C / \
+
+  && mkdir -p /etc/services.d/plex/ \
+  && printf "%s\n" \
+    "#!/usr/bin/env sh" \
+    "set -ex" \
+    "export LD_LIBRARY_PATH='/usr/lib/plexmediaserver'" \
+    "export PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR='/home/plex'" \
+    "export PLEX_MEDIA_SERVER_HOME='/usr/lib/plexmediaserver'" \
+    "export PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS='6'" \
+    "export PLEX_MEDIA_SERVER_MAX_STACK_SIZE='3000'" \
+    "export TMPDIR='/tmp'" \
+    "ulimit -s \$PLEX_MEDIA_SERVER_MAX_STACK_SIZE" \
+    "exec s6-applyuidgid -g 100 -u $USERID_ON_HOST \\" \
+    "  /usr/lib/plexmediaserver/Plex\\ Media\\ Server" \
+    > /etc/services.d/plex/run \
+  && chmod +x /etc/services.d/plex/run \
+
   && apt-get purge -qqy --auto-remove \
     $BUILD_PACKAGES \
   && apt-get clean -qqy \
-  && rm -rf plexmediaserver.deb /bin/start /var/lib/apt/lists/* /tmp/* \
-  && mkdir -p /etc/services.d/plex/
+  && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/*
 
-COPY ["run", "/etc/services.d/plex/"]
 ENTRYPOINT ["/init"]
 EXPOSE 32400
-VOLUME ["/config", "/media"]
 
-# docker build --rm=true --tag="ptb2/plex" .
-# docker run --detach --name=plex --net=host --publish=32400:32400 \
-#   --volume=/volume1/@appstore/Plex:/config \
-#   --volume=/volume1/Media:/media:ro \
+# docker build --rm --tag ptb2/plex .
+# docker run --detach --name plex --net host \
+#   --publish 32400:32400/tcp \
+#   --volume /volume1/@appstore/Plex:/home/plex \
+#   --volume /volume1/Media:/home/media:ro \
 #   ptb2/plex
