@@ -75,6 +75,6 @@ EXPOSE 32400
 # docker build --rm --tag ptb2/plex .
 # docker run --detach --name plex --net host \
 #   --publish 32400:32400/tcp \
-#   --volume /volume1/@appstore/Plex:/home/plex \
+#   --volume /volume1/Config/Plex:/home/plex \
 #   --volume /volume1/Media:/home/media:ro \
 #   ptb2/plex
