@@ -26,12 +26,7 @@ RUN \
     $BUILD_PACKAGES \
 
   && wget \
-    --output-document - \
-    --quiet \
-    https://plex.tv/downloads \
-    | sed -n '/binaries/! s/.*"\(.*_amd64.deb\)".*/\1/p' \
-    | wget \
-      --input-file - \
+    https://downloads.plex.tv/plex-media-server/1.0.2.2413-7caf41d/plexmediaserver_1.0.2.2413-7caf41d_amd64.deb \
       --output-document /tmp/plexmediaserver.deb \
       --quiet \
 
